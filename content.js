@@ -8,14 +8,12 @@ let speed = 1;
 chrome.storage.sync.get({ enabled: true, speed: 1 }, (s) => {
   enabled = s.enabled;
   speed = s.speed;
-  sendSpeed();
+  sendSettings();
 });
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.enabled) enabled = changes.enabled.newValue;
-  if (changes.speed) {
-    speed = changes.speed.newValue;
-    sendSpeed();
-  }
+  if (changes.speed) speed = changes.speed.newValue;
+  sendSettings();
 });
 
 function log(...args) {
@@ -34,22 +32,32 @@ function findNextButton() {
   );
 }
 
-// 대기 시간 동안 취소할 수 있는 알림을 띄운 뒤 버튼을 누른다.
-let pending = null;
-function scheduleClick(btn) {
-  if (pending) return;
+// 오른쪽 아래에 글자와 버튼 하나가 있는 알림을 띄운다.
+function showToast(buttonLabel, onButton) {
   const toast = document.createElement('div');
   toast.style.cssText =
     'position:fixed;right:20px;bottom:20px;z-index:2147483647;padding:12px 16px;' +
     'background:#222;color:#fff;border-radius:8px;font:14px sans-serif;' +
     'box-shadow:0 4px 12px rgba(0,0,0,.3);display:flex;gap:12px;align-items:center';
   const text = document.createElement('span');
-  const cancel = document.createElement('button');
-  cancel.textContent = '취소';
-  cancel.style.cssText =
+  const button = document.createElement('button');
+  button.textContent = buttonLabel;
+  button.style.cssText =
     'background:#555;color:#fff;border:0;border-radius:4px;padding:4px 10px;cursor:pointer';
-  toast.append(text, cancel);
+  button.addEventListener('click', onButton);
+  toast.append(text, button);
   document.body.appendChild(toast);
+  return { toast, text };
+}
+
+// 대기 시간 동안 취소할 수 있는 알림을 띄운 뒤 버튼을 누른다.
+let pending = null;
+function scheduleClick(btn) {
+  if (pending) return;
+  const { toast, text } = showToast('취소', () => {
+    log('사용자가 취소함');
+    done();
+  });
 
   let remaining = DELAY_SECONDS;
   const tick = () => (text.textContent = `${remaining}초 후 다음 강의로 넘어갑니다`);
@@ -60,10 +68,6 @@ function scheduleClick(btn) {
     pending = null;
     toast.remove();
   };
-  cancel.addEventListener('click', () => {
-    log('사용자가 취소함');
-    done();
-  });
 
   pending = setInterval(() => {
     remaining -= 1;
@@ -94,12 +98,29 @@ if (isTop) {
   });
 }
 
-// 재생 속도는 콜로소 페이지의 Kollus 컨트롤러로 바꿔야 해서 main.js에 전달한다.
-function sendSpeed() {
-  if (isTop && !isKollus) document.dispatchEvent(new CustomEvent('auto-next:speed', { detail: speed }));
+// 재생 시작과 속도는 콜로소 페이지의 Kollus 컨트롤러로 제어해야 해서 main.js에 설정을 전달한다.
+// 격리된 환경의 객체는 페이지 쪽에서 읽을 수 없어서 JSON 문자열로 보낸다.
+function sendSettings() {
+  if (!isTop || isKollus) return;
+  const detail = JSON.stringify({ enabled, speed });
+  document.dispatchEvent(new CustomEvent('auto-next:settings', { detail }));
 }
 // main.js가 나중에 로드될 수도 있어 잠시 동안 몇 번 더 보낸다.
-[1000, 3000, 6000].forEach((ms) => setTimeout(sendSpeed, ms));
+[1000, 3000, 6000].forEach((ms) => setTimeout(sendSettings, ms));
+
+// main.js가 재생 요청을 여러 번 보냈는데도 멈춰 있고 페이지 클릭 기록이 없으면 이 이벤트를 보낸다.
+// 크롬은 사용자가 페이지를 한 번도 클릭하지 않았으면 소리 있는 자동 재생을 막으므로 한 번 눌러 달라고 한다.
+// 콜로소는 다음 강의로 넘어가도 페이지를 새로 불러오지 않아서, 한 번만 눌러 주면 이후 강의는 자동 재생된다.
+let playToast = null;
+document.addEventListener('auto-next:need-click', () => {
+  if (!isTop || playToast) return;
+  playToast = showToast('▶ 재생', () => {
+    playToast.toast.remove();
+    playToast = null;
+    document.dispatchEvent(new CustomEvent('auto-next:play'));
+  });
+  playToast.text.textContent = '크롬 정책상 첫 재생은 직접 눌러야 해요';
+});
 
 const hooked = new WeakSet();
 function hookVideos() {
@@ -122,6 +143,7 @@ function answerResumePrompt() {
   answered.add(yes);
   log('이어보기 팝업에서 "예" 클릭');
   yes.click();
+  // 재생 시작은 main.js가 팝업이 닫힌 것을 보고 처리한다.
 }
 
 // 플레이어는 진행 바 때문에 DOM이 초당 여러 번 바뀌므로 몰아서 검사한다.
