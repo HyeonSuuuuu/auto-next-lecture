@@ -52,7 +52,7 @@ ZIP을 다른 폴더에 풀었다면 기존 확장을 삭제하고 새 폴더로
 | 파일 | 역할 |
 |---|---|
 | `content.js` | 영상 종료 감지, 다음 버튼 클릭, 이어보기 팝업 처리 (콜로소 + Kollus iframe) |
-| `main.js` | 콜로소 페이지의 Kollus 컨트롤러(`VgControllerClient`)로 재생 속도 변경 |
+| `main.js` | 콜로소 페이지의 Kollus 컨트롤러(`VgControllerClient`)로 새 강의 재생 시작, 재생 속도 변경 |
 | `background.js` | Kollus iframe의 영상 종료 신호를 콜로소 페이지로 전달 |
 | `popup.html/js` | 자동 넘김 켜기/끄기, 재생 속도 선택 |
 
