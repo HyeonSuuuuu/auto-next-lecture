@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Auto Next Lecture",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "영상이 끝나면 '다음 강의' 버튼을 자동으로 눌러줍니다.",
   "permissions": ["storage"],
   "background": {

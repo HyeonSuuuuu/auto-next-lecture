@@ -5,14 +5,17 @@ const isKollus = /(^|\.)kollus\.com$/.test(location.hostname);
 // 팝업의 켜기/끄기 스위치와 재생 속도
 let enabled = true;
 let speed = 1;
-chrome.storage.sync.get({ enabled: true, speed: 1 }, (s) => {
+let resume = false;
+chrome.storage.sync.get({ enabled: true, speed: 1, resume: false }, (s) => {
   enabled = s.enabled;
   speed = s.speed;
+  resume = s.resume;
   sendSettings();
 });
 chrome.storage.onChanged.addListener((changes) => {
   if (changes.enabled) enabled = changes.enabled.newValue;
   if (changes.speed) speed = changes.speed.newValue;
+  if (changes.resume) resume = changes.resume.newValue;
   sendSettings();
 });
 
@@ -132,17 +135,19 @@ function hookVideos() {
   });
 }
 
-// 콜로소 페이지가 띄우는 "이전 재생 위치 ...부터 재생하시겠습니까?" 팝업에서 "예"를 누른다.
+// 콜로소 페이지가 띄우는 "이전 재생 위치 ...부터 재생하시겠습니까?" 팝업에 답한다.
+// resume 설정이 켜져 있으면 "예"(이어보기), 꺼져 있으면 "아니오"(처음부터)를 누른다.
 const answered = new WeakSet();
 function answerResumePrompt() {
   if (!enabled || isKollus) return;
   const dialog = document.querySelector('[data-testid="kr.classroom.player.dialog"]');
   if (!dialog?.textContent.includes('재생 위치')) return;
-  const yes = [...dialog.querySelectorAll('button')].find((b) => b.innerText.trim() === '예');
-  if (!yes || answered.has(yes) || !isVisible(yes)) return;
-  answered.add(yes);
-  log('이어보기 팝업에서 "예" 클릭');
-  yes.click();
+  const label = resume ? '예' : '아니오';
+  const target = [...dialog.querySelectorAll('button')].find((b) => b.innerText.trim() === label);
+  if (!target || answered.has(target) || !isVisible(target)) return;
+  answered.add(target);
+  log(`이어보기 팝업에서 "${label}" 클릭`);
+  target.click();
   // 재생 시작은 main.js가 팝업이 닫힌 것을 보고 처리한다.
 }
 

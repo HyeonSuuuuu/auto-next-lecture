@@ -1,5 +1,6 @@
 const toggle = document.getElementById('enabled');
 const speed = document.getElementById('speed');
+const resume = document.getElementById('resume');
 
 // Kollus 플레이어가 제공하는 배속 범위(0.5x ~ 2.0x, 0.1 단위)와 똑같이 맞춘다.
 for (let i = 5; i <= 20; i++) {
@@ -7,9 +8,11 @@ for (let i = 5; i <= 20; i++) {
   speed.add(new Option(`${rate}x`, rate));
 }
 
-chrome.storage.sync.get({ enabled: true, speed: 1 }, (s) => {
+chrome.storage.sync.get({ enabled: true, speed: 1, resume: false }, (s) => {
   toggle.checked = s.enabled;
   speed.value = Number(s.speed).toFixed(1);
+  resume.value = s.resume ? 'yes' : 'no';
 });
 toggle.addEventListener('change', () => chrome.storage.sync.set({ enabled: toggle.checked }));
 speed.addEventListener('change', () => chrome.storage.sync.set({ speed: Number(speed.value) }));
+resume.addEventListener('change', () => chrome.storage.sync.set({ resume: resume.value === 'yes' }));
